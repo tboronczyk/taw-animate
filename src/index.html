@@ -1,0 +1,140 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Life 4555</title>
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+  </head>
+  <body style="margin: 0;">
+    <canvas id="c"></canvas>
+    <script type="module">
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.127/build/three.module.js';
+import {OrbitControls} from 'https://cdn.jsdelivr.net/npm/three@0.127.0/examples/jsm/controls/OrbitControls.js';
+
+const canvas = document.getElementById('c');
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+const renderer = new THREE.WebGLRenderer({canvas});
+
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 50);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+
+camera.position.z = 15;
+controls.update();
+
+const scene = new THREE.Scene();
+
+const geometry = new THREE.BoxGeometry(0.8, 0.8, 0.8);
+
+const materialDead = new THREE.MeshBasicMaterial({wireframe: true, opacity: 0.1, transparent: true});
+const materialAlive = new THREE.MeshBasicMaterial({color: 0x44aa88});
+
+const nWide = 10;
+const nTall = 10;
+const nDeep = 10;
+
+function init() {
+    const cells = [];
+    for (let d = 0; d < nDeep; ++d) {
+        cells[d] = [];
+        for (let h = 0; h < nTall; ++h) {
+            cells[d][h] = [];
+            for (let w = 0; w < nWide; ++w) {
+                const isAlive = Math.round(Math.random());
+                const block = new THREE.Mesh(geometry, isAlive ? materialAlive : materialDead);
+                block.position.x = -nWide / 2 + w;
+                block.position.y = nTall / 2 - h;
+                block.position.z = nDeep / 2 - d;
+                scene.add(block);
+
+                cells[d][h][w] = {isAlive, block};
+            }
+        }
+    }
+    return cells;
+}
+
+function calculateNext(cells) {
+    const nextState = [];
+    for (let d = 0; d < nDeep; ++d) {
+        nextState[d] = [];
+        for (let h = 0; h < nTall; ++h) {
+            nextState[d][h] = [];
+            for (let w = 0; w < nWide; ++w) {
+                // optional chaining, we love you!
+                const neighbors = 
+                    (cells[d - 1]?.[h - 1]?.[w - 1]?.isAlive || 0) +
+                    (cells[d - 1]?.[h - 1]?.[w]?.isAlive || 0) +
+                    (cells[d - 1]?.[h - 1]?.[w + 1]?.isAlive || 0) +
+   
+                    (cells[d - 1]?.[h]?.[w - 1]?.isAlive || 0) +
+                    (cells[d - 1]?.[h]?.[w]?.isAlive || 0) +
+                    (cells[d - 1]?.[h]?.[w + 1]?.isAlive || 0) +
+  
+                    (cells[d - 1]?.[h + 1]?.[w - 1]?.isAlive || 0) +
+                    (cells[d - 1]?.[h + 1]?.[w]?.isAlive || 0) +
+                    (cells[d - 1]?.[h + 1]?.[w + 1]?.isAlive || 0) +
+ 
+                    (cells?.[h - 1]?.[w - 1]?.isAlive || 0) +
+                    (cells?.[h - 1]?.[w]?.isAlive || 0) +
+                    (cells?.[h - 1]?.[w + 1]?.isAlive || 0) +
+
+                    (cells?.[h]?.[w - 1]?.isAlive || 0) +
+                    (cells?.[h]?.[w + 1]?.isAlive || 0) +
+
+                    (cells?.[h + 1]?.[w - 1]?.isAlive || 0) +
+                    (cells?.[h + 1]?.[w]?.isAlive || 0) +
+                    (cells?.[h + 1]?.[w + 1]?.isAlive || 0) +
+
+                    (cells[d + 1]?.[h - 1]?.[w - 1]?.isAlive || 0) +
+                    (cells[d + 1]?.[h - 1]?.[w]?.isAlive || 0) +
+                    (cells[d + 1]?.[h - 1]?.[w + 1]?.isAlive || 0) +
+    
+                    (cells[d + 1]?.[h]?.[w - 1]?.isAlive || 0) +
+                    (cells[d + 1]?.[h]?.[w]?.isAlive || 0) +
+                    (cells[d + 1]?.[h]?.[w + 1]?.isAlive || 0) +
+   
+                    (cells[d + 1]?.[h + 1]?.[w - 1]?.isAlive || 0) +
+                    (cells[d + 1]?.[h + 1]?.[w]?.isAlive || 0) +
+                    (cells[d + 1]?.[h + 1]?.[w + 1]?.isAlive || 0);
+  
+    
+                // Life "4555"
+                // see wpmedia.wolfram.com/uploads/sites/13/2018/02/01-3-1.pdf
+                const rule1 = cells[d][h][w] && (neighbors == 4 || neighbors == 5);
+                const rule2 = !cells[d][h][w] && neighbors == 5;
+                nextState[d][h][w] = rule1 || rule2;
+            }
+        }
+    }
+    return nextState;
+}
+
+let prevUpdate = 0;
+function step(timestamp) {
+    // update once a second
+    if (timestamp - prevUpdate > 1000) {
+        prevUpdate = timestamp;
+
+        let next = calculateNext(cells);
+        for (let d = 0; d < nDeep; ++d) {
+            for (let h = 0; h < nTall; ++h) {
+                for (let w = 0; w < nWide; ++w) {
+                    cells[d][h][w].isAlive = next[d][h][w];
+                    cells[d][h][w].block.material = next[d][h][w] ? materialAlive : materialDead;
+                }
+            }
+        }
+    }
+    renderer.render(scene, camera);
+    window.requestAnimationFrame(step);
+}
+
+const cells = init();
+step(0);
+    </script>
+  </body>
+</html>
